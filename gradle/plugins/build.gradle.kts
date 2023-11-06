@@ -47,7 +47,6 @@ tasks.withType<DependencyUpdatesTask> {
         }
       }
     }
-    force(libs.bnd)
   }
 }
 

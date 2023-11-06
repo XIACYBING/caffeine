@@ -2,6 +2,10 @@ plugins {
   id("root-caffeine-conventions")
 }
 
+require(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+  "Java 17 or above is required run the build"
+}
+
 allprojects {
   description = "A high performance caching library"
   group = "com.github.ben-manes.caffeine"
