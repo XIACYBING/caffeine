@@ -15,31 +15,6 @@
  */
 package com.github.benmanes.caffeine.cache;
 
-import static com.github.benmanes.caffeine.cache.Specifications.BOUNDED_LOCAL_CACHE;
-import static com.github.benmanes.caffeine.cache.Specifications.BUILDER_PARAM;
-import static com.github.benmanes.caffeine.cache.Specifications.CACHE_LOADER_PARAM;
-import static com.github.benmanes.caffeine.cache.Specifications.kTypeVar;
-import static com.github.benmanes.caffeine.cache.Specifications.vTypeVar;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Year;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.NavigableMap;
-import java.util.Set;
-import java.util.TreeMap;
-
-import javax.lang.model.element.Modifier;
-
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import com.github.benmanes.caffeine.cache.local.AddConstructor;
 import com.github.benmanes.caffeine.cache.local.AddDeques;
 import com.github.benmanes.caffeine.cache.local.AddExpirationTicker;
@@ -48,9 +23,9 @@ import com.github.benmanes.caffeine.cache.local.AddExpireAfterWrite;
 import com.github.benmanes.caffeine.cache.local.AddFastPath;
 import com.github.benmanes.caffeine.cache.local.AddKeyValueStrength;
 import com.github.benmanes.caffeine.cache.local.AddMaximum;
+import com.github.benmanes.caffeine.cache.local.AddPacer;
 import com.github.benmanes.caffeine.cache.local.AddRefreshAfterWrite;
 import com.github.benmanes.caffeine.cache.local.AddRemovalListener;
-import com.github.benmanes.caffeine.cache.local.AddPacer;
 import com.github.benmanes.caffeine.cache.local.AddStats;
 import com.github.benmanes.caffeine.cache.local.AddSubtype;
 import com.github.benmanes.caffeine.cache.local.AddWriteBuffer;
@@ -70,6 +45,29 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+import javax.lang.model.element.Modifier;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Year;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
+
+import static com.github.benmanes.caffeine.cache.Specifications.BOUNDED_LOCAL_CACHE;
+import static com.github.benmanes.caffeine.cache.Specifications.BUILDER_PARAM;
+import static com.github.benmanes.caffeine.cache.Specifications.CACHE_LOADER_PARAM;
+import static com.github.benmanes.caffeine.cache.Specifications.kTypeVar;
+import static com.github.benmanes.caffeine.cache.Specifications.vTypeVar;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Generates a factory that creates the cache optimized for the user specified configuration.
@@ -99,7 +97,14 @@ public final class LocalCacheFactoryGenerator {
   }
 
   void generate() throws IOException {
-    factory = TypeSpec.classBuilder("LocalCacheFactory")
+
+    String clazzName = "LocalCacheFactory";
+    if (null != checkExistClass(getClass().getPackage().getName().concat(clazzName))) {
+      return;
+    }
+
+    factory = TypeSpec
+        .classBuilder(clazzName)
         .addModifiers(Modifier.FINAL)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build());
     addClassJavaDoc();
@@ -110,8 +115,20 @@ public final class LocalCacheFactoryGenerator {
     writeJavaFile();
   }
 
+  public static @Nullable Class<?> checkExistClass(String clazzFullName) {
+    // todo 似乎不起作用，每次还是照样生成对应的类，可能和运行环境有关？
+    try {
+      Class<?> clazz = Class.forName(clazzFullName);
+      System.out.println(clazzFullName + "：已存在，不生成");
+      return clazz;
+    } catch (ClassNotFoundException ignore) {
+      return null;
+    }
+  }
+
   private void addFactoryMethods() {
-    factory.addMethod(MethodSpec.methodBuilder("newBoundedLocalCache")
+    factory.addMethod(MethodSpec
+        .methodBuilder("newBoundedLocalCache")
         .addTypeVariable(kTypeVar)
         .addTypeVariable(vTypeVar)
         .returns(BOUNDED_LOCAL_CACHE)

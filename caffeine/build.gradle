@@ -99,6 +99,7 @@ sonarqube {
   }
 }
 
+// 生成LocalCacheFactory和缓存类实体（SI/SIA/SIAR....）
 task generateLocalCaches(type: JavaExec) {
   main = 'com.github.benmanes.caffeine.cache.LocalCacheFactoryGenerator'
   classpath = sourceSets.javaPoet.runtimeClasspath
@@ -111,6 +112,10 @@ task generateLocalCaches(type: JavaExec) {
 compileJava.dependsOn(generateLocalCaches)
 sourcesJar.dependsOn(generateLocalCaches)
 
+// 生成NodeFactory和剩余的缓存类实体
+// 运行当前任务时，可能出现类似的报错：- Type 'org.gradle.api.tasks.compile.JavaCompile' property 'options.compilerArgumentProviders.apt$1.name' is missing an input or output annotation.
+// 罪魁祸首可能是codeQuality.gradle中的apply plugin: 'net.ltgt.apt'的问题，注释掉后就能正常执行了
+// 相关问题链接：https://stackoverflow.com/questions/67082576/type-javacompile-property-options-compilerargumentproviders-apt0-name-is-mi
 task generateNodes(type: JavaExec) {
   main = 'com.github.benmanes.caffeine.cache.NodeFactoryGenerator'
   classpath = sourceSets.javaPoet.runtimeClasspath

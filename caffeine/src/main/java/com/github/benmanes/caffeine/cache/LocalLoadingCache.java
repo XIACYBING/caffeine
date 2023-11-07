@@ -90,35 +90,66 @@ interface LocalLoadingCache<K, V> extends LocalManualCache<K, V>, LoadingCache<K
   @Override
   @SuppressWarnings("FutureReturnValueIgnored")
   default void refresh(K key) {
+
+    // key不能为空
     requireNonNull(key);
 
+    // 新建数组存储旧值的写入时间
     long[] writeTime = new long[1];
+
+    // 获取当前时间
     long startTime = cache().statsTicker().read();
+
+    // 获取旧值
     V oldValue = cache().getIfPresentQuietly(key, writeTime);
+
+    // 如果旧值为空，则异步加载，如果不为空，则异步重载，调用不同方法
+    // 生成一个future
     CompletableFuture<V> refreshFuture = (oldValue == null)
         ? cacheLoader().asyncLoad(key, cache().executor())
         : cacheLoader().asyncReload(key, oldValue, cache().executor());
+
+    // 新值加载完成（即刷新完成）的后置处理，包含记录加载时间，替换旧值
     refreshFuture.whenComplete((newValue, error) -> {
+
+      // 计算加载时间
       long loadTime = cache().statsTicker().read() - startTime;
+
+      // 如果加载异常，打印日志，并记录加载失败的耗时
       if (error != null) {
         logger.log(Level.WARNING, "Exception thrown during refresh", error);
         cache().statsCounter().recordLoadFailure(loadTime);
         return;
       }
 
+      // 新建布尔数据，记录旧值是否被替换
       boolean[] discard = new boolean[1];
       cache().compute(key, (k, currentValue) -> {
+
+        // 当前旧值为空，直接返回新值
         if (currentValue == null) {
           return newValue;
-        } else if (currentValue == oldValue) {
+        }
+
+        // 当前旧值等于加载新值前获取到的旧值
+        else if (currentValue == oldValue) {
+
+          // 获取加载新值前获取到的旧值的写入时间
           long expectedWriteTime = writeTime[0];
+
+          // 如果当前缓存会在写入后过期/刷新，则获取key当前对应值的写入时间
           if (cache().hasWriteTime()) {
             cache().getIfPresentQuietly(key, writeTime);
           }
+
+          // 如果当前旧值等于加载新值前获取到的旧值，且两者的写入时间一致，说明是同一个旧值
+          // 直接返回新值即可
           if (writeTime[0] == expectedWriteTime) {
             return newValue;
           }
         }
+
+        // 走到这里，说明在加载新值过程中，缓存里key对应的值已经被刷新过，丢弃本次加载到的新值，返回currentValue
         discard[0] = true;
         return currentValue;
       }, /* recordMiss */ false, /* recordLoad */ false, /* recordLoadFailure */ true);
@@ -126,6 +157,9 @@ interface LocalLoadingCache<K, V> extends LocalManualCache<K, V>, LoadingCache<K
       if (discard[0] && cache().hasRemovalListener()) {
         cache().notifyRemoval(key, newValue, RemovalCause.REPLACED);
       }
+
+      // 进行指标记录
+      // 如果新值为空，则默认为加载失败（无论加载成功或失败）
       if (newValue == null) {
         cache().statsCounter().recordLoadFailure(loadTime);
       } else {

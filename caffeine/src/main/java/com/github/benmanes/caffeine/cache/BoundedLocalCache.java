@@ -15,16 +15,14 @@
  */
 package com.github.benmanes.caffeine.cache;
 
-import static com.github.benmanes.caffeine.cache.Async.ASYNC_EXPIRY;
-import static com.github.benmanes.caffeine.cache.Caffeine.ceilingPowerOfTwo;
-import static com.github.benmanes.caffeine.cache.Caffeine.requireArgument;
-import static com.github.benmanes.caffeine.cache.Caffeine.requireState;
-import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newBulkMappingFunction;
-import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newMappingFunction;
-import static com.github.benmanes.caffeine.cache.Node.PROBATION;
-import static com.github.benmanes.caffeine.cache.Node.PROTECTED;
-import static com.github.benmanes.caffeine.cache.Node.WINDOW;
-import static java.util.Objects.requireNonNull;
+import com.github.benmanes.caffeine.base.UnsafeAccess;
+import com.github.benmanes.caffeine.cache.Async.AsyncExpiry;
+import com.github.benmanes.caffeine.cache.LinkedDeque.PeekingIterator;
+import com.github.benmanes.caffeine.cache.References.InternalReference;
+import com.github.benmanes.caffeine.cache.stats.StatsCounter;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -68,15 +66,16 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
-import com.github.benmanes.caffeine.base.UnsafeAccess;
-import com.github.benmanes.caffeine.cache.Async.AsyncExpiry;
-import com.github.benmanes.caffeine.cache.LinkedDeque.PeekingIterator;
-import com.github.benmanes.caffeine.cache.References.InternalReference;
-import com.github.benmanes.caffeine.cache.stats.StatsCounter;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+import static com.github.benmanes.caffeine.cache.Async.ASYNC_EXPIRY;
+import static com.github.benmanes.caffeine.cache.Caffeine.ceilingPowerOfTwo;
+import static com.github.benmanes.caffeine.cache.Caffeine.requireArgument;
+import static com.github.benmanes.caffeine.cache.Caffeine.requireState;
+import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newBulkMappingFunction;
+import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newMappingFunction;
+import static com.github.benmanes.caffeine.cache.Node.PROBATION;
+import static com.github.benmanes.caffeine.cache.Node.PROTECTED;
+import static com.github.benmanes.caffeine.cache.Node.WINDOW;
+import static java.util.Objects.requireNonNull;
 
 /**
  * An in-memory cache implementation that supports full concurrency of retrievals, a high expected
@@ -2445,10 +2444,17 @@ abstract class BoundedLocalCache<K, V> extends BLCHeader.DrainStatusRef<K, V>
     requireNonNull(key);
     requireNonNull(remappingFunction);
 
-    long[] now = { expirationTicker().read() };
+    // 获取当前时间
+    long[] now = {expirationTicker().read()};
+
+    // 包装key
     Object keyRef = nodeFactory.newReferenceKey(key, keyReferenceQueue());
+
+    // 包装remappingFunction，根据外界传入的指标记录的条件进行指标记录
     BiFunction<? super K, ? super V, ? extends V> statsAwareRemappingFunction =
         statsAware(remappingFunction, recordMiss, recordLoad, recordLoadFailure);
+
+    // 进行数据重映射
     return remap(key, keyRef, statsAwareRemappingFunction, now, /* computeIfAbsent */ true);
   }
 

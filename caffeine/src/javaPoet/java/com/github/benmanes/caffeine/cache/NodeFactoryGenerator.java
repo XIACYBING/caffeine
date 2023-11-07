@@ -15,42 +15,6 @@
  */
 package com.github.benmanes.caffeine.cache;
 
-import static com.github.benmanes.caffeine.cache.Specifications.BUILDER_PARAM;
-import static com.github.benmanes.caffeine.cache.Specifications.DEAD_STRONG_KEY;
-import static com.github.benmanes.caffeine.cache.Specifications.DEAD_WEAK_KEY;
-import static com.github.benmanes.caffeine.cache.Specifications.NODE;
-import static com.github.benmanes.caffeine.cache.Specifications.NODE_FACTORY;
-import static com.github.benmanes.caffeine.cache.Specifications.PACKAGE_NAME;
-import static com.github.benmanes.caffeine.cache.Specifications.RETIRED_STRONG_KEY;
-import static com.github.benmanes.caffeine.cache.Specifications.RETIRED_WEAK_KEY;
-import static com.github.benmanes.caffeine.cache.Specifications.kRefQueueType;
-import static com.github.benmanes.caffeine.cache.Specifications.kTypeVar;
-import static com.github.benmanes.caffeine.cache.Specifications.keyRefQueueSpec;
-import static com.github.benmanes.caffeine.cache.Specifications.keyRefSpec;
-import static com.github.benmanes.caffeine.cache.Specifications.keySpec;
-import static com.github.benmanes.caffeine.cache.Specifications.lookupKeyType;
-import static com.github.benmanes.caffeine.cache.Specifications.rawReferenceKeyType;
-import static com.github.benmanes.caffeine.cache.Specifications.referenceKeyType;
-import static com.github.benmanes.caffeine.cache.Specifications.vTypeVar;
-import static com.github.benmanes.caffeine.cache.Specifications.valueRefQueueSpec;
-import static com.github.benmanes.caffeine.cache.Specifications.valueSpec;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Year;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.NavigableMap;
-import java.util.Set;
-import java.util.TreeMap;
-
-import javax.lang.model.element.Modifier;
-
 import com.github.benmanes.caffeine.cache.node.AddConstructors;
 import com.github.benmanes.caffeine.cache.node.AddDeques;
 import com.github.benmanes.caffeine.cache.node.AddExpiration;
@@ -76,6 +40,42 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+
+import javax.lang.model.element.Modifier;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Year;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
+
+import static com.github.benmanes.caffeine.cache.LocalCacheFactoryGenerator.checkExistClass;
+import static com.github.benmanes.caffeine.cache.Specifications.BUILDER_PARAM;
+import static com.github.benmanes.caffeine.cache.Specifications.DEAD_STRONG_KEY;
+import static com.github.benmanes.caffeine.cache.Specifications.DEAD_WEAK_KEY;
+import static com.github.benmanes.caffeine.cache.Specifications.NODE;
+import static com.github.benmanes.caffeine.cache.Specifications.NODE_FACTORY;
+import static com.github.benmanes.caffeine.cache.Specifications.PACKAGE_NAME;
+import static com.github.benmanes.caffeine.cache.Specifications.RETIRED_STRONG_KEY;
+import static com.github.benmanes.caffeine.cache.Specifications.RETIRED_WEAK_KEY;
+import static com.github.benmanes.caffeine.cache.Specifications.kRefQueueType;
+import static com.github.benmanes.caffeine.cache.Specifications.kTypeVar;
+import static com.github.benmanes.caffeine.cache.Specifications.keyRefQueueSpec;
+import static com.github.benmanes.caffeine.cache.Specifications.keyRefSpec;
+import static com.github.benmanes.caffeine.cache.Specifications.keySpec;
+import static com.github.benmanes.caffeine.cache.Specifications.lookupKeyType;
+import static com.github.benmanes.caffeine.cache.Specifications.rawReferenceKeyType;
+import static com.github.benmanes.caffeine.cache.Specifications.referenceKeyType;
+import static com.github.benmanes.caffeine.cache.Specifications.vTypeVar;
+import static com.github.benmanes.caffeine.cache.Specifications.valueRefQueueSpec;
+import static com.github.benmanes.caffeine.cache.Specifications.valueSpec;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Generates the cache entry factory and specialized types. These entries are optimized for the
@@ -115,9 +115,13 @@ public final class NodeFactoryGenerator {
   }
 
   void generate() throws IOException {
-    nodeFactory = TypeSpec.interfaceBuilder("NodeFactory")
-        .addTypeVariable(kTypeVar)
-        .addTypeVariable(vTypeVar);
+
+    String clazzName = "NodeFactory";
+    if (null != checkExistClass(getClass().getPackage().getName().concat(clazzName))) {
+      return;
+    }
+
+    nodeFactory = TypeSpec.interfaceBuilder(clazzName).addTypeVariable(kTypeVar).addTypeVariable(vTypeVar);
     addClassJavaDoc();
     addConstants();
     addKeyMethods();
